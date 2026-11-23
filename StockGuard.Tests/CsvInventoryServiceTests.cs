@@ -1,5 +1,5 @@
-
-using StockGuard.ConsoleApp.Services;
+﻿
+using StockGuard.Infrastructure.Services;
 using Xunit;
 
 namespace StockGuard.Tests;
@@ -141,3 +141,4 @@ public void LoadInventory_RejectsInvalidHeader()
 }
 
 }
+

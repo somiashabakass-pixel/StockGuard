@@ -19,8 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\StockGuard.Console\StockGuard.Console.csproj" />
     <ProjectReference Include="..\StockGuard.Core\StockGuard.Core.csproj" />
+    <ProjectReference Include="..\StockGuard.Infrastructure\StockGuard.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,7 +1,7 @@
 ﻿using StockGuard.Core.Services;
 
 using StockGuard.Core.Models;
-using StockGuard.ConsoleApp.Services;
+using StockGuard.Infrastructure.Services;
 using Xunit;
 
 namespace StockGuard.Tests;
@@ -80,5 +80,6 @@ public class InventoryRiskServiceTests
         Assert.Equal(0, summary.TotalUnitsDiscrepancy);
     }
 }
+
 
 

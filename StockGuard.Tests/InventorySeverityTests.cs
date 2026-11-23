@@ -1,7 +1,7 @@
 ﻿using StockGuard.Core.Services;
 
 using StockGuard.Core.Models;
-using StockGuard.ConsoleApp.Services;
+using StockGuard.Infrastructure.Services;
 using Xunit;
 
 namespace StockGuard.Tests;
@@ -72,5 +72,6 @@ public class InventorySeverityTests
         Assert.Equal("Missing from Warehouse", results[0].Status);
     }
 }
+
 
 

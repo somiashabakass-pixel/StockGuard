@@ -1,7 +1,7 @@
 ﻿using StockGuard.Core.Services;
 
 using StockGuard.Core.Models;
-using StockGuard.ConsoleApp.Services;
+using StockGuard.Infrastructure.Services;
 
 // STOCKGUARD AUDIT - VERSION 0.9
 // Inventory Reconciliation + Severity + Risk Summary
@@ -91,6 +91,7 @@ catch (Exception ex)
     Console.WriteLine($"Audit failed: {ex.Message}");
     Environment.ExitCode = 1;
 }
+
 
 
 

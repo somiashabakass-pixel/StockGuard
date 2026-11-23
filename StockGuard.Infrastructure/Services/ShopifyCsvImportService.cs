@@ -2,7 +2,7 @@
 using System.Globalization;
 using StockGuard.Core.Models;
 
-namespace StockGuard.ConsoleApp.Services;
+namespace StockGuard.Infrastructure.Services;
 
 public class ShopifyCsvImportService
 {
@@ -147,5 +147,6 @@ public class ShopifyCsvImportService
         return fields.ToArray();
     }
 }
+
 
 
