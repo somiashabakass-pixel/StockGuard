@@ -1,0 +1,5 @@
+
+Handle,Title,SKU,Location,On hand (current)
+shirt-blue,Blue Shirt,SHIRT-001,Main Warehouse,100
+shirt-red,Red Shirt,SHIRT-002,Main Warehouse,50
+mug-black,Black Mug,MUG-001,Main Warehouse,75

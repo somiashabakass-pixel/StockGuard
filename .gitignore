@@ -1,0 +1,36 @@
+# .NET build output
+**/bin/
+**/obj/
+
+# Visual Studio and VS Code
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Test results
+TestResults/
+**/TestResults/
+coverage/
+
+# Local secrets and environment variables
+.env
+.env.*
+!.env.example
+appsettings.Development.json
+**/secrets.json
+
+# Local database and temporary files
+*.db
+*.db-shm
+*.db-wal
+*.log
+*.tmp
+
+# Generated StockGuard reports
+StockGuard_Report.csv
+
+# Node.js / Angular (for later)
+node_modules/
+dist/
+.angular/
