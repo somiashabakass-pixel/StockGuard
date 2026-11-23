@@ -1,6 +1,6 @@
-
+﻿
 using System.Globalization;
-using StockGuard.ConsoleApp.Models;
+using StockGuard.Core.Models;
 
 namespace StockGuard.ConsoleApp.Services;
 
@@ -136,3 +136,4 @@ public class CsvInventoryService
         return reportPath;
     }
 }
+

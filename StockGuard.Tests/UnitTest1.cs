@@ -1,5 +1,6 @@
-﻿
-using StockGuard.ConsoleApp.Models;
+﻿using StockGuard.Core.Services;
+
+using StockGuard.Core.Models;
 using StockGuard.ConsoleApp.Services;
 using Xunit;
 
@@ -157,3 +158,5 @@ public void CompareInventory_HandlesMultipleProducts()
 }
 
 }
+
+

@@ -1,5 +1,5 @@
-
-using StockGuard.ConsoleApp.Models;
+﻿
+using StockGuard.Core.Models;
 using StockGuard.ConsoleApp.Services;
 using Xunit;
 
@@ -116,3 +116,4 @@ public void LoadInventory_RejectsInvalidQuantity()
 }
 
 }
+

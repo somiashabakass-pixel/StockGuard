@@ -1,5 +1,6 @@
-﻿
-using StockGuard.ConsoleApp.Models;
+﻿using StockGuard.Core.Services;
+
+using StockGuard.Core.Models;
 using StockGuard.ConsoleApp.Services;
 
 // STOCKGUARD AUDIT - VERSION 0.9
@@ -90,4 +91,6 @@ catch (Exception ex)
     Console.WriteLine($"Audit failed: {ex.Message}");
     Environment.ExitCode = 1;
 }
+
+
 
