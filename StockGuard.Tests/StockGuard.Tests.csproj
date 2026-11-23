@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\StockGuard.Console\StockGuard.Console.csproj" />
+    <ProjectReference Include="..\StockGuard.Core\StockGuard.Core.csproj" />
   </ItemGroup>
 
 </Project>
