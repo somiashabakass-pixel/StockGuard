@@ -1,4 +1,5 @@
 ﻿using StockGuard.Core.Services;
+using StockGuard.Infrastructure.Data;
 
 using StockGuard.Core.Models;
 using StockGuard.Infrastructure.Services;
@@ -8,6 +9,21 @@ using StockGuard.Infrastructure.Services;
 
 try
 {
+    DatabaseConnectionService databaseService = new();
+
+bool databaseConnected =
+    await databaseService.TestConnectionAsync();
+
+if (!databaseConnected)
+{
+    throw new InvalidOperationException(
+        "Unable to connect to PostgreSQL.");
+}
+
+Console.WriteLine(
+    "PostgreSQL connection successful!");
+
+Console.WriteLine();
     // STEP 1: Create services
     CsvInventoryService csvService = new();
     ShopifyCsvImportService shopifyService = new();
