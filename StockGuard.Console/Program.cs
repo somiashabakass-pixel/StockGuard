@@ -1,14 +1,14 @@
 ﻿using StockGuard.Core.Models;
 using StockGuard.Core.Services;
 using StockGuard.Infrastructure.Data;
+using StockGuard.Infrastructure.Data.Entities;
 using StockGuard.Infrastructure.Services;
 
-// STOCKGUARD AUDIT - VERSION 1.0
-// Inventory Reconciliation + Permanent Audit Storage
+// STOCKGUARD AUDIT - VERSION 1.1
+// Permanent Storage + Historical Audit Retrieval
 
 try
 {
-    // STEP 1: Connect to PostgreSQL
     DatabaseConnectionService databaseService = new();
 
     bool databaseConnected =
@@ -22,42 +22,91 @@ try
 
     Console.WriteLine("PostgreSQL connection successful!");
 
-    // STEP 2: Initialize local development data
     DevelopmentDataService developmentDataService = new();
-
     await developmentDataService.InitializeAsync();
 
     Console.WriteLine("Development database initialized!");
     Console.WriteLine();
 
-    // STEP 3: Create services
+    AuditHistoryService historyService = new();
+
+    // HISTORY MODE
+    if (args.Contains("--history"))
+    {
+        List<AuditRun> history =
+            await historyService.GetAuditHistoryAsync(
+                DevelopmentDataService.OrganizationId);
+
+        Console.WriteLine("==================================");
+        Console.WriteLine("       STOCKGUARD AUDIT HISTORY   ");
+        Console.WriteLine("==================================");
+
+        Console.WriteLine($"Audits retrieved: {history.Count}");
+
+        foreach (AuditRun audit in history)
+        {
+            Console.WriteLine("----------------------------------");
+            Console.WriteLine($"Audit ID: {audit.Id}");
+            Console.WriteLine($"Started: {audit.StartedAtUtc:u}");
+            Console.WriteLine($"Status: {audit.Status}");
+            Console.WriteLine($"Total products: {audit.TotalProducts}");
+            Console.WriteLine($"Matches: {audit.MatchingProducts}");
+            Console.WriteLine($"Mismatches: {audit.MismatchedProducts}");
+            Console.WriteLine($"Missing: {audit.MissingProducts}");
+            Console.WriteLine(
+                $"Units discrepancy: {audit.TotalUnitsDiscrepancy}");
+        }
+
+        if (history.Count > 0)
+        {
+            AuditRun latestAudit = history[0];
+
+            List<AuditResultEntity> savedResults =
+                await historyService.GetAuditResultsAsync(
+                    DevelopmentDataService.OrganizationId,
+                    latestAudit.Id);
+
+            Console.WriteLine("==================================");
+            Console.WriteLine("       LATEST SAVED AUDIT         ");
+            Console.WriteLine("==================================");
+
+            foreach (AuditResultEntity result in savedResults)
+            {
+                Console.WriteLine(
+                    $"{result.SKU} | " +
+                    $"Shopify: {result.ShopifyQuantity?.ToString() ?? "N/A"} | " +
+                    $"Warehouse: {result.WarehouseQuantity?.ToString() ?? "N/A"} | " +
+                    $"Difference: {result.Difference?.ToString() ?? "N/A"} | " +
+                    $"{result.Status} | {result.Severity}");
+            }
+        }
+
+        return;
+    }
+
+    // NORMAL AUDIT MODE
     CsvInventoryService csvService = new();
     ShopifyCsvImportService shopifyService = new();
     InventoryAuditService auditService = new();
     InventoryRiskService riskService = new();
     AuditPersistenceService persistenceService = new();
 
-    // STEP 4: Record audit start time
     DateTime startedAtUtc = DateTime.UtcNow;
 
-    // STEP 5: Load inventory
     List<InventoryRecord> shopifyInventory =
         shopifyService.LoadInventory("shopify-export-sample.csv");
 
     List<InventoryRecord> warehouseInventory =
         csvService.LoadInventory("warehouse.csv");
 
-    // STEP 6: Compare inventory
     List<AuditResult> results =
         auditService.CompareInventory(
             shopifyInventory,
             warehouseInventory);
 
-    // STEP 7: Calculate risk summary
     InventoryRiskSummary riskSummary =
         riskService.CalculateRisk(results);
 
-    // STEP 8: Permanently save audit
     Guid auditId = await persistenceService.SaveAuditAsync(
         DevelopmentDataService.OrganizationId,
         DevelopmentDataService.StoreId,
@@ -70,9 +119,8 @@ try
     Console.WriteLine($"Audit ID: {auditId}");
     Console.WriteLine();
 
-    // STEP 9: Display audit results
     Console.WriteLine("==================================");
-    Console.WriteLine("       STOCKGUARD AUDIT v1.0      ");
+    Console.WriteLine("       STOCKGUARD AUDIT v1.1      ");
     Console.WriteLine("==================================");
 
     foreach (AuditResult result in results)
@@ -85,10 +133,8 @@ try
             $" | Severity: {result.Severity.ToUpperInvariant()}");
     }
 
-    // STEP 10: Export report
     string reportPath = csvService.ExportReport(results);
 
-    // STEP 11: Calculate audit statistics
     int matches = results.Count(
         result => result.Status == "Match");
 
@@ -98,7 +144,6 @@ try
     int missingProducts = results.Count(
         result => result.Status.StartsWith("Missing"));
 
-    // STEP 12: Display audit summary
     Console.WriteLine("----------------------------------");
     Console.WriteLine("            AUDIT SUMMARY         ");
     Console.WriteLine("----------------------------------");
@@ -108,7 +153,6 @@ try
     Console.WriteLine($"Quantity mismatches: {mismatches}");
     Console.WriteLine($"Missing products: {missingProducts}");
 
-    // STEP 13: Display inventory risk summary
     Console.WriteLine("----------------------------------");
     Console.WriteLine("        INVENTORY RISK SUMMARY    ");
     Console.WriteLine("----------------------------------");
@@ -129,6 +173,6 @@ try
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"Audit failed: {ex.Message}");
+    Console.WriteLine($"Operation failed: {ex.Message}");
     Environment.ExitCode = 1;
 }
