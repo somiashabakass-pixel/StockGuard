@@ -106,7 +106,7 @@ public class AuditPersistenceIntegrationTests
             Assert.Equal(3, savedResults.Count);
 
             var mismatch = Assert.Single(
-                savedResults.Where(x => x.SKU == "TEST-001"));
+                savedResults, x => x.SKU == "TEST-001");
 
             Assert.Equal(100, mismatch.ShopifyQuantity);
             Assert.Equal(90, mismatch.WarehouseQuantity);
@@ -115,13 +115,13 @@ public class AuditPersistenceIntegrationTests
             Assert.Equal("Medium", mismatch.Severity);
 
             var match = Assert.Single(
-                savedResults.Where(x => x.SKU == "TEST-002"));
+                savedResults, x => x.SKU == "TEST-002");
 
             Assert.Equal("Match", match.Status);
             Assert.Equal(0, match.Difference);
 
             var missing = Assert.Single(
-                savedResults.Where(x => x.SKU == "TEST-003"));
+                savedResults, x => x.SKU == "TEST-003");
 
             Assert.Equal("Missing from Warehouse", missing.Status);
             Assert.Null(missing.WarehouseQuantity);
@@ -149,3 +149,4 @@ public class AuditPersistenceIntegrationTests
         }
     }
 }
+
