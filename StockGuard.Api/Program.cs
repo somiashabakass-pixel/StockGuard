@@ -88,7 +88,8 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 
     options.SignIn.RequireConfirmedEmail = true;
 })
-.AddEntityFrameworkStores<StockGuardDbContext>();
+.AddEntityFrameworkStores<StockGuardDbContext>()
+    .AddSignInManager();
 
 builder.Services.Configure<PasswordHasherOptions>(options =>
 {
@@ -99,6 +100,10 @@ builder.Services.Configure<PasswordHasherOptions>(options =>
 });
 
 builder.Services.AddScoped<RegistrationService>();
+builder.Services.AddSingleton<LoginTimingProtection>();
+builder.Services.AddSingleton<ILoginTimingProtection>(
+    services => services.GetRequiredService<LoginTimingProtection>());
+builder.Services.AddScoped<LoginService>();
 
 builder.Services.AddScoped<InventoryAuditService>();
 
@@ -115,6 +120,9 @@ builder.Services.AddScoped<AuditHistoryService>(sp =>
 builder.Services.AddScoped<CsvUploadService>();
 
 var app = builder.Build();
+
+// Initialize login timing protection before accepting requests.
+_ = app.Services.GetRequiredService<ILoginTimingProtection>();
 
 app.UseSerilogRequestLogging();
 

@@ -51,7 +51,7 @@ public sealed class RegistrationEndpointTests
         }
     }
 
-    private async Task CleanupAsync(RegisterRequest request)
+    private async Task CleanupAsync(RegisterRequest request, string? originalOrganizationName = null)
     {
         using var scope =
             _factory.Services.CreateScope();
@@ -71,7 +71,7 @@ public sealed class RegistrationEndpointTests
             .ToListAsync();
 
         var organizationIds = await context.Organizations
-            .Where(x => x.Name == request.OrganizationName)
+            .Where(x => x.Name == (originalOrganizationName ?? request.OrganizationName).Trim())
             .Select(x => x.Id)
             .ToListAsync();
 
@@ -262,7 +262,7 @@ public sealed class RegistrationEndpointTests
         }
         finally
         {
-            await CleanupAsync(request);
+            await CleanupAsync(request, original.OrganizationName);
         }
     }
 

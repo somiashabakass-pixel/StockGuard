@@ -50,8 +50,7 @@ public sealed class RegistrationIntegrationTests
         }
     }
 
-    private async Task CleanupAsync(
-        RegisterRequest request)
+    private async Task CleanupAsync(RegisterRequest request, string? originalOrganizationName = null)
     {
         using var scope =
             _factory.Services.CreateScope();
@@ -66,7 +65,7 @@ public sealed class RegistrationIntegrationTests
             .ToUpperInvariant();
 
         string organizationName =
-            request.OrganizationName.Trim();
+            (originalOrganizationName ?? request.OrganizationName).Trim();
 
         await using var transaction =
             await context.Database.BeginTransactionAsync();
@@ -313,7 +312,7 @@ public sealed class RegistrationIntegrationTests
         }
         finally
         {
-            await CleanupAsync(request);
+            await CleanupAsync(request, original.OrganizationName);
         }
     }
 

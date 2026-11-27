@@ -1,0 +1,18 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace StockGuard.Api.Dtos.Auth;
+
+public sealed class LoginRequest
+{
+    [Required]
+    [EmailAddress]
+    [StringLength(256)]
+    public string Email { get; init; } = string.Empty;
+
+    [Required]
+    [StringLength(128)]
+    [DataType(DataType.Password)]
+    public string Password { get; init; } = string.Empty;
+
+    public bool RememberMe { get; init; }
+}
