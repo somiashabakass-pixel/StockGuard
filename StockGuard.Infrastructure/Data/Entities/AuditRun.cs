@@ -10,6 +10,10 @@ public class AuditRun
 
     public Guid WarehouseId { get; set; }
 
+    public string? IdempotencyKey { get; set; }
+
+    public string? RequestHash { get; set; }
+
     public DateTime StartedAtUtc { get; set; }
         = DateTime.UtcNow;
 

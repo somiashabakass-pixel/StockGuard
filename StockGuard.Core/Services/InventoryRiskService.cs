@@ -4,13 +4,18 @@ namespace StockGuard.Core.Services;
 
 public class InventoryRiskService
 {
-    public InventoryRiskSummary CalculateRisk(
-        List<AuditResult> results)
+    public virtual InventoryRiskSummary CalculateRisk(
+        List<AuditResult> results,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         InventoryRiskSummary summary = new();
 
         foreach (AuditResult result in results)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             switch (result.Severity)
             {
                 case "High":
@@ -41,6 +46,8 @@ public class InventoryRiskService
                     Math.Abs(result.Difference.Value);
             }
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         return summary;
     }

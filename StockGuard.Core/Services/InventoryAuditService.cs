@@ -4,24 +4,60 @@ namespace StockGuard.Core.Services;
 
 public class InventoryAuditService
 {
-    public List<AuditResult> CompareInventory(
+    public virtual List<AuditResult> CompareInventory(
         List<InventoryRecord> shopifyInventory,
-        List<InventoryRecord> warehouseInventory)
+        List<InventoryRecord> warehouseInventory,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         List<AuditResult> results = new();
 
-        var shopify = shopifyInventory.ToDictionary(
-            item => item.SKU, item => item.Quantity);
+        Dictionary<string, int> shopify = new();
+        Dictionary<string, int> warehouse = new();
 
-        var warehouse = warehouseInventory.ToDictionary(
-            item => item.SKU, item => item.Quantity);
+        foreach (var item in shopifyInventory)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
 
-        var allSkus = shopify.Keys
-            .Union(warehouse.Keys)
-            .OrderBy(sku => sku);
+            shopify.Add(item.SKU, item.Quantity);
+        }
+
+        foreach (var item in warehouseInventory)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            warehouse.Add(item.SKU, item.Quantity);
+        }
+
+        HashSet<string> skuSet = new();
+
+        foreach (string sku in shopify.Keys)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            skuSet.Add(sku);
+        }
+
+        foreach (string sku in warehouse.Keys)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            skuSet.Add(sku);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var allSkus = skuSet
+            .OrderBy(sku => sku)
+            .ToList();
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         foreach (string sku in allSkus)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             bool inShopify = shopify.TryGetValue(
                 sku, out int shopifyQuantity);
 
@@ -31,8 +67,10 @@ public class InventoryAuditService
             AuditResult result = new()
             {
                 SKU = sku,
+
                 ShopifyQuantity = inShopify
                     ? shopifyQuantity : null,
+
                 WarehouseQuantity = inWarehouse
                     ? warehouseQuantity : null
             };
@@ -79,6 +117,8 @@ public class InventoryAuditService
 
             results.Add(result);
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         return results;
     }

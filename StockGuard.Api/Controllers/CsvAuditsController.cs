@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using System.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
 using StockGuard.Api.Dtos;
+using StockGuard.Api.Helpers;
 using StockGuard.Core.Models;
 using StockGuard.Core.Services;
 using StockGuard.Infrastructure.Services;
@@ -16,19 +18,22 @@ public class CsvAuditsController : ControllerBase
     private readonly InventoryRiskService _riskService;
     private readonly AuditPersistenceService _persistenceService;
     private readonly IWebHostEnvironment _environment;
+    private readonly ILogger<CsvAuditsController> _logger;
 
     public CsvAuditsController(
         CsvUploadService csvService,
         InventoryAuditService auditService,
         InventoryRiskService riskService,
         AuditPersistenceService persistenceService,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        ILogger<CsvAuditsController> logger)
     {
         _csvService = csvService;
         _auditService = auditService;
         _riskService = riskService;
         _persistenceService = persistenceService;
         _environment = environment;
+        _logger = logger;
     }
 
     [HttpPost("upload")]
@@ -37,11 +42,28 @@ public class CsvAuditsController : ControllerBase
     [RequestFormLimits(
         MultipartBodyLengthLimit = 5 * 1024 * 1024)]
     public async Task<ActionResult<AuditResponseDto>> Upload(
-        [FromForm] CsvAuditRequestDto request)
+        [FromForm] CsvAuditRequestDto request,
+        CancellationToken cancellationToken = default)
     {
-        if (!_environment.IsDevelopment())
+        if (!_environment.IsDevelopment() && !_environment.IsEnvironment("Testing"))
         {
             return NotFound();
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var stopwatch = Stopwatch.StartNew();
+
+        if (!IdempotencyHeader.TryRead(
+            Request.Headers,
+            out string? idempotencyKey,
+            out string? headerError))
+        {
+            ModelState.AddModelError(
+                IdempotencyHeader.HeaderName,
+                headerError!);
+
+            return ValidationProblem(ModelState);
         }
 
         DateTime startedAtUtc = DateTime.UtcNow;
@@ -64,12 +86,13 @@ public class CsvAuditsController : ControllerBase
 
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             using var shopifyStream =
                 request.ShopifyFile.OpenReadStream();
 
             shopifyInventory =
-                _csvService.ReadShopifyInventory(
-                    shopifyStream);
+                _csvService.ReadShopifyInventory(shopifyStream, cancellationToken);
         }
         catch (InvalidDataException exception)
         {
@@ -80,14 +103,15 @@ public class CsvAuditsController : ControllerBase
             return ValidationProblem(ModelState);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         try
         {
             using var warehouseStream =
                 request.WarehouseFile.OpenReadStream();
 
             warehouseInventory =
-                _csvService.ReadWarehouseInventory(
-                    warehouseStream);
+                _csvService.ReadWarehouseInventory(warehouseStream, cancellationToken);
         }
         catch (InvalidDataException exception)
         {
@@ -98,10 +122,59 @@ public class CsvAuditsController : ControllerBase
             return ValidationProblem(ModelState);
         }
 
-        List<AuditResult> results =
-            _auditService.CompareInventory(
+        cancellationToken.ThrowIfCancellationRequested();
+
+        string? requestHash = idempotencyKey is null
+            ? null
+            : AuditRequestHashService.ComputeHash(
+                DevelopmentDataService.OrganizationId,
+                DevelopmentDataService.StoreId,
+                DevelopmentDataService.WarehouseId,
                 shopifyInventory,
                 warehouseInventory);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (idempotencyKey is not null)
+        {
+            try
+            {
+                var existing =
+                    await _persistenceService.TryGetExistingAuditAsync(
+                        DevelopmentDataService.OrganizationId,
+                        DevelopmentDataService.StoreId,
+                        DevelopmentDataService.WarehouseId,
+                        idempotencyKey,
+                        requestHash!,
+                        cancellationToken);
+
+                if (existing is not null)
+                {
+                    stopwatch.Stop();
+
+                    _logger.LogInformation(
+                        "CSV audit {AuditId} replayed. DurationMs: {DurationMs}",
+                        existing.AuditId,
+                        stopwatch.Elapsed.TotalMilliseconds);
+
+                    return Ok(
+                        AuditResponseMapper.FromPersistedSnapshot(
+                            existing));
+                }
+            }
+            catch (IdempotencyConflictException)
+            {
+                return Problem(
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "Idempotency conflict",
+                    detail: "The idempotency key has already been used with a different audit request.");
+            }
+        }
+
+        List<AuditResult> results =
+            _auditService.CompareInventory(shopifyInventory, warehouseInventory, cancellationToken);
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         long totalDiscrepancy = results
             .Where(x => x.Status == "Mismatch")
@@ -118,64 +191,61 @@ public class CsvAuditsController : ControllerBase
         }
 
         InventoryRiskSummary risk =
-            _riskService.CalculateRisk(results);
+            _riskService.CalculateRisk(results, cancellationToken);
 
-        Guid auditId =
-            await _persistenceService.SaveAuditAsync(
-                DevelopmentDataService.OrganizationId,
-                DevelopmentDataService.StoreId,
-                DevelopmentDataService.WarehouseId,
-                startedAtUtc,
-                results,
-                risk);
+        cancellationToken.ThrowIfCancellationRequested();
 
-        AuditResponseDto response = new()
+
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        AuditSaveResult savedAudit;
+
+        try
         {
-            AuditId = auditId,
+            savedAudit =
+                await _persistenceService.SaveAuditWithDetailsAsync(
+                    DevelopmentDataService.OrganizationId,
+                    DevelopmentDataService.StoreId,
+                    DevelopmentDataService.WarehouseId,
+                    startedAtUtc,
+                    results,
+                    risk,
+                    cancellationToken,
+                    idempotencyKey: idempotencyKey,
+                    requestHash: requestHash);
+        }
+        catch (IdempotencyConflictException)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Idempotency conflict",
+                detail: "The idempotency key has already been used with a different audit request.");
+        }
 
-            CompletedAtUtc = DateTime.UtcNow,
+        PersistedAuditSnapshot snapshot =
+            await _persistenceService.GetPersistedAuditAsync(
+                DevelopmentDataService.OrganizationId,
+                savedAudit.AuditId,
+                cancellationToken)
+            ?? throw new InvalidOperationException(
+                "The saved audit could not be retrieved.");
 
-            TotalProducts = results.Count,
+        AuditResponseDto response =
+            AuditResponseMapper.FromPersistedSnapshot(
+                snapshot);
 
-            MatchingProducts =
-                risk.MatchingProducts,
+        stopwatch.Stop();
 
-            MismatchedProducts = results.Count(
-                x => x.Status == "Mismatch"),
-
-            MissingProducts =
-                risk.MissingProducts,
-
-            HighSeverity =
-                risk.HighSeverity,
-
-            MediumSeverity =
-                risk.MediumSeverity,
-
-            LowSeverity =
-                risk.LowSeverity,
-
-            TotalUnitsDiscrepancy =
-                risk.TotalUnitsDiscrepancy,
-
-            Results = results.Select(x =>
-                new AuditResultDto
-                {
-                    SKU = x.SKU,
-
-                    ShopifyQuantity =
-                        x.ShopifyQuantity,
-
-                    WarehouseQuantity =
-                        x.WarehouseQuantity,
-
-                    Difference = x.Difference,
-
-                    Status = x.Status,
-
-                    Severity = x.Severity
-                }).ToList()
-        };
+        _logger.LogInformation(
+            "CSV audit {AuditId} completed. Products: {TotalProducts}, Matching: {MatchingProducts}, Mismatched: {MismatchedProducts}, Missing: {MissingProducts}, Discrepancy: {TotalUnitsDiscrepancy}, DurationMs: {DurationMs}",
+            response.AuditId,
+            response.TotalProducts,
+            response.MatchingProducts,
+            response.MismatchedProducts,
+            response.MissingProducts,
+            response.TotalUnitsDiscrepancy,
+            stopwatch.Elapsed.TotalMilliseconds);
 
         return Ok(response);
     }

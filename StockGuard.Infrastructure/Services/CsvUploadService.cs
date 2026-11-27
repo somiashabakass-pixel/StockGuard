@@ -11,22 +11,37 @@ public class CsvUploadService
     public const int MaxRecords = 10000;
     public const int MaxFileSize = 5 * 1024 * 1024;
 
-    public List<InventoryRecord> ReadShopifyInventory(Stream stream)
+    public List<InventoryRecord> ReadShopifyInventory(
+        Stream stream,
+        CancellationToken cancellationToken = default)
     {
-        return ReadInventory(stream, "On hand (current)", true);
+        return ReadInventory(
+            stream,
+            "On hand (current)",
+            true,
+            cancellationToken);
     }
 
-    public List<InventoryRecord> ReadWarehouseInventory(Stream stream)
+    public List<InventoryRecord> ReadWarehouseInventory(
+        Stream stream,
+        CancellationToken cancellationToken = default)
     {
-        return ReadInventory(stream, "Quantity", false);
+        return ReadInventory(
+            stream,
+            "Quantity",
+            false,
+            cancellationToken);
     }
 
     private List<InventoryRecord> ReadInventory(
         Stream stream,
         string quantityColumn,
-        bool requireLocation)
+        bool requireLocation,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(stream);
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (!stream.CanRead || !stream.CanSeek)
         {
@@ -55,7 +70,7 @@ public class CsvUploadService
 
         using var reader = new StreamReader(
             stream,
-            new UTF8Encoding(false, true),
+            new UTF8Encoding(true, true),
             detectEncodingFromByteOrderMarks: false,
             bufferSize: 4096,
             leaveOpen: true);
@@ -71,6 +86,8 @@ public class CsvUploadService
 
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (!csv.Read())
             {
                 throw new InvalidDataException(
@@ -79,6 +96,8 @@ public class CsvUploadService
 
             csv.ReadHeader();
 
+            cancellationToken.ThrowIfCancellationRequested();
+
             var headers = csv.HeaderRecord
                 ?? throw new InvalidDataException(
                     "CSV headers are missing.");
@@ -86,6 +105,24 @@ public class CsvUploadService
             var normalizedHeaders = headers
                 .Select(x => x.Trim().ToUpperInvariant())
                 .ToList();
+
+            if (headers.Any(header => header.Any(char.IsControl)))
+            {
+                throw new InvalidDataException(
+                    "CSV column headers contain invalid control characters.");
+            }
+
+            if (headers.Any(header => header.Length > 65536))
+            {
+                throw new InvalidDataException(
+                    "CSV column header exceeds the maximum allowed length.");
+            }
+
+            if (normalizedHeaders.Any(string.IsNullOrWhiteSpace))
+            {
+                throw new InvalidDataException(
+                    "CSV column headers cannot be empty.");
+            }
 
             if (normalizedHeaders.Distinct().Count()
                 != normalizedHeaders.Count)
@@ -114,14 +151,25 @@ public class CsvUploadService
                     "The Shopify Location column is required.");
             }
 
-            while (csv.Read())
+            while (true)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!csv.Read())
+                {
+                    break;
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+
                 int row = csv.Parser.Row;
 
                 for (int column = 0;
                      column < csv.Parser.Count;
                      column++)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
+
                     string field = csv.GetField(column)
                         ?? string.Empty;
 
@@ -227,6 +275,8 @@ public class CsvUploadService
                 exception);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (inventory.Count == 0)
         {
             throw new InvalidDataException(
@@ -236,4 +286,3 @@ public class CsvUploadService
         return inventory;
     }
 }
-

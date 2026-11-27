@@ -18,6 +18,21 @@ public class AuditRunConfiguration
             .IsRequired()
             .HasMaxLength(50);
 
+        builder.Property(x => x.IdempotencyKey)
+            .HasMaxLength(128);
+
+        builder.Property(x => x.RequestHash)
+            .HasMaxLength(64);
+
+        builder.HasIndex(x => new
+        {
+            x.OrganizationId,
+            x.IdempotencyKey
+        })
+        .IsUnique()
+        .HasDatabaseName(
+            "UX_audit_runs_organization_idempotency");
+
         builder.HasIndex(x => new
         {
             x.OrganizationId,

@@ -74,6 +74,10 @@ namespace StockGuard.Infrastructure.Data.Migrations
                     b.Property<DateTime?>("CompletedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<int>("MatchingProducts")
                         .HasColumnType("integer");
 
@@ -85,6 +89,10 @@ namespace StockGuard.Infrastructure.Data.Migrations
 
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("RequestHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTime>("StartedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -107,6 +115,10 @@ namespace StockGuard.Infrastructure.Data.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_audit_runs_organization_idempotency");
 
                     b.HasIndex("OrganizationId", "StartedAtUtc");
 

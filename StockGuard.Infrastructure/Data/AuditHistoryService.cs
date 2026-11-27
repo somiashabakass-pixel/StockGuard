@@ -34,12 +34,15 @@ public class AuditHistoryService
 
     public async Task<List<AuditRun>> GetAuditHistoryAsync(
         Guid organizationId,
-        int limit = 50)
+        int limit = 50,
+        CancellationToken cancellationToken = default)
     {
         if (limit < 1 || limit > 100)
         {
             throw new ArgumentOutOfRangeException(nameof(limit));
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         await using var context =
             new StockGuardDbContext(_options);
@@ -50,13 +53,16 @@ public class AuditHistoryService
             .OrderByDescending(x => x.StartedAtUtc)
             .ThenByDescending(x => x.Id)
             .Take(limit)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<List<AuditResultEntity>> GetAuditResultsAsync(
         Guid organizationId,
-        Guid auditId)
+        Guid auditId,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         await using var context =
             new StockGuardDbContext(_options);
 
@@ -66,6 +72,6 @@ public class AuditHistoryService
                 x.AuditRunId == auditId &&
                 x.AuditRun.OrganizationId == organizationId)
             .OrderBy(x => x.SKU)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 }

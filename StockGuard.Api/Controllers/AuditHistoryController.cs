@@ -21,9 +21,10 @@ public class AuditHistoryController : ControllerBase
 
     [HttpGet]
     public async Task<ActionResult<List<AuditHistoryDto>>> GetHistory(
-        [FromQuery] int limit = 50)
+        [FromQuery] int limit = 50,
+        CancellationToken cancellationToken = default)
     {
-        if (!_environment.IsDevelopment())
+        if (!_environment.IsDevelopment() && !_environment.IsEnvironment("Testing"))
         {
             return NotFound();
         }
@@ -37,10 +38,15 @@ public class AuditHistoryController : ControllerBase
             return ValidationProblem(ModelState);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         var audits =
             await _historyService.GetAuditHistoryAsync(
                 DevelopmentDataService.OrganizationId,
-                limit);
+                limit,
+                cancellationToken);
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         var response = audits.Select(x =>
             new AuditHistoryDto
@@ -62,17 +68,23 @@ public class AuditHistoryController : ControllerBase
 
     [HttpGet("{auditId:guid}/results")]
     public async Task<ActionResult<List<AuditResultDto>>> GetResults(
-        Guid auditId)
+        Guid auditId,
+        CancellationToken cancellationToken = default)
     {
-        if (!_environment.IsDevelopment())
+        if (!_environment.IsDevelopment() && !_environment.IsEnvironment("Testing"))
         {
             return NotFound();
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         var results =
             await _historyService.GetAuditResultsAsync(
                 DevelopmentDataService.OrganizationId,
-                auditId);
+                auditId,
+                cancellationToken);
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (results.Count == 0)
         {
