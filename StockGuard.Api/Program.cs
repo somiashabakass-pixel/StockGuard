@@ -1,3 +1,6 @@
+using StockGuard.Api.Services.Auth;
+using Microsoft.AspNetCore.Identity;
+using StockGuard.Infrastructure.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Serilog;
@@ -66,6 +69,36 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddDbContext<StockGuardDbContext>(
     options => options.UseNpgsql(connectionString));
+
+builder.Services.AddIdentityCore<ApplicationUser>(options =>
+{
+    options.User.RequireUniqueEmail = true;
+
+    options.Password.RequiredLength = 15;
+    options.Password.RequiredUniqueChars = 1;
+    options.Password.RequireDigit = false;
+    options.Password.RequireLowercase = false;
+    options.Password.RequireUppercase = false;
+    options.Password.RequireNonAlphanumeric = false;
+
+    options.Lockout.AllowedForNewUsers = true;
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.DefaultLockoutTimeSpan =
+        TimeSpan.FromMinutes(15);
+
+    options.SignIn.RequireConfirmedEmail = true;
+})
+.AddEntityFrameworkStores<StockGuardDbContext>();
+
+builder.Services.Configure<PasswordHasherOptions>(options =>
+{
+    options.CompatibilityMode =
+        PasswordHasherCompatibilityMode.IdentityV3;
+
+    options.IterationCount = 210_000;
+});
+
+builder.Services.AddScoped<RegistrationService>();
 
 builder.Services.AddScoped<InventoryAuditService>();
 
